@@ -36,6 +36,7 @@ import org.apache.skywalking.apm.agent.core.util.CollectionUtil;
 import org.apache.skywalking.apm.agent.core.util.MethodUtil;
 import org.apache.skywalking.apm.network.trace.component.ComponentsDefine;
 import org.apache.skywalking.apm.plugin.spring.mvc.commons.EnhanceRequireObjectCache;
+import org.apache.skywalking.apm.plugin.spring.mvc.commons.config.IgnoreExceptionConfig;
 import org.apache.skywalking.apm.plugin.spring.mvc.commons.exception.IllegalMethodStackDepthException;
 import org.apache.skywalking.apm.plugin.spring.mvc.commons.exception.ServletResponseNotFoundException;
 import org.apache.skywalking.apm.util.StringUtil;
@@ -56,6 +57,7 @@ public abstract class AbstractMethodInterceptor implements InstanceMethodsAround
 
     static {
         IS_SERVLET_GET_STATUS_METHOD_EXIST = MethodUtil.isMethodExist(AbstractMethodInterceptor.class.getClassLoader(), SERVLET_RESPONSE_CLASS, GET_STATUS_METHOD);
+        IgnoreExceptionConfig.initialize();
     }
 
     public abstract String getRequestURL(Method method);
@@ -194,7 +196,11 @@ public abstract class AbstractMethodInterceptor implements InstanceMethodsAround
     @Override
     public void handleMethodException(EnhancedInstance objInst, Method method, Object[] allArguments,
         Class<?>[] argumentsTypes, Throwable t) {
-        ContextManager.activeSpan().errorOccurred().log(t);
+        if (!IgnoreExceptionConfig.Trace.IGNORE_EXCEPTION_NAMES_SET.contains(t.getClass().getName())) {
+            ContextManager.activeSpan().errorOccurred().log(t);
+        } else {
+            ContextManager.activeSpan().log(t);
+        }
     }
 
     private void collectHttpParam(HttpServletRequest request, AbstractSpan span) {
